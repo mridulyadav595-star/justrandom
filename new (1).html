@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes" />
+    <title>Aditya Business Centre – Online Sync</title>
+
+    <!-- ===== FIREBASE SDK ===== -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js">
+    </script>
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fb;
+            color: #1e293b;
+            line-height: 1.6;
+            padding-bottom: 80px;
+        }
+        button {
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            transition: all 0.2s ease;
+        }
+        input,
+        select {
+            font-family: inherit;
+            font-size: 1rem;
+            padding: 10px 14px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+            width: 100%;
+            transition: border 0.2s;
+        }
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        /* ===== HEADER ===== */
+        .app-header {
+            background: linear-gradient(135deg, #1e3a5f, #2a5298);
+            color: #fff;
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .app-header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .app-header .brand h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .app-header .brand span {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            display: block;
+            font-weight: 400;
+        }
+        .app-header .shop-info {
+            font-size: 0.8rem;
+            text-align: right;
+            opacity: 0.9;
+            line-height: 1.3;
+        }
+        .header-search {
+            flex: 1;
+            min-width: 200px;
+            max-width: 450px;
+            position: relative;
+            margin: 0 12px;
+        }
+        .header-search input {
+            width: 100%;
+            padding: 8px 16px 8px 40px;
+            border-radius: 30px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 0.95rem;
+            backdrop-filter: blur(4px);
+        }
+        .header-search input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .header-search input:focus {
+            background: rgba(255, 255, 255, 0.3);
+            outline: none;
+        }
+        .header-search .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .header-search .clear-search {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.2rem;
+            display: none;
+            cursor: pointer;
+        }
+        .header-search .clear-search.visible {
+            display: block;
+        }
+        .sync-badge {
+            background: #16a34a;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sync-badge.syncing {
+            background: #d97706;
+            animation: pulse 1.5s infinite ease-in-out; transform-origin: center;
+        }
+        .sync-badge.offline {
+            background: #dc2626;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* ===== SEARCH DROPDOWN (FIXED - Missing CSS added) ===== */
+        .search-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            border: 1px solid #eef2f6;
+            max-height: 320px;
+            overflow-y: auto;
+            z-index: 999;
+            padding: 8px 0;
+        }
+        .search-dropdown.open {
+            display: block;
+        }
+        .search-dropdown .result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-bottom: 1px solid #f8fafc;
+        }
+        .search-dropdown .result-item:hover {
+            background: #f1f5f9;
+        }
+        .search-dropdown .result-item .thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            background: #f1f5f9;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .search-dropdown .result-item .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .search-dropdown .result-item .info .name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .search-dropdown .result-item .info .stock {
+            font-size: 0.8rem;
+            color: #475569;
+        }
+        .search-dropdown .result-item .info .stock.low {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        .search-dropdown .no-result {
+            padding: 20px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        /* ===== NAVIGATION ===== */
+        .nav-tabs {
+            background: #fff;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 76px;
+            z-index: 99;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .nav-tabs .container {
+            display: flex;
+            gap: 4px;
+            padding: 8px 16px;
+        }
+        .nav-tabs button {
+            background: transparent;
+            padding: 10px 18px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #64748b;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 3px solid transparent;
+            flex-shrink: 0;
+        }
+        .nav-tabs button:hover {
+            color: #1e293b;
+            background: #f1f5f9;
+        }
+        .nav-tabs button.active { transform: scale(1.05); }
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: #eff6ff;
+        }
+        .tab-content {
+            display: none;
+            padding: 24px 0 40px;
+            animation: fadeUp 0.3s ease;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #0f172a;
+        }
+        .section-sub {
+            color: #64748b;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+
+        /* ===== CARDS ===== */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border-left: 5px solid #2563eb;
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 4px;
+        }
+        .stat-card.low-stock {
+            border-left-color: #ef4444;
+        }
+        .stat-card.low-stock .value {
+            color: #dc2626;
+        }
+        .stat-card.sales {
+            border-left-color: #16a34a;
+        }
+        .stat-card.sales .value {
+            color: #16a34a;
+        }
+        .stat-card.stock-value {
+            border-left-color: #8b5cf6;
+        }
+        .stat-card.stock-value .value {
+            color: #7c3aed;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            font-weight: 600;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .btn-success {
+            background: #16a34a;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #15803d;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #d1d5db;
+            color: #1e293b;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.85rem;
+        }
+
+        /* ===== PRODUCT GRID ===== */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .product-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            border: 1px solid #eef2f6;
+            transition: all 0.2s;
+        }
+        .product-card:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            transform: translateY(-3px);
+        }
+        .product-card .photo {
+            width: 100%;
+            height: 160px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .product-card .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .product-card .photo .no-photo {
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+        .product-card .info {
+            padding: 12px 14px 14px;
+        }
+        .product-card .info .name {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .product-card .info .code {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .product-card .info .stock-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .product-card .info .stock-row .current {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .product-card .info .stock-row .low-badge {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+        .product-card .info .similarity {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .product-card .info .prices {
+            font-size: 0.8rem;
+            color: #475569;
+            display: flex;
+            gap: 12px;
+            margin-top: 2px;
+        }
+
+        /* ===== PHOTO SEARCH AREA ===== */
+        .photo-search-area {
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .photo-search-area.drag-over {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        .photo-search-area .search-icon-big {
+            font-size: 3.5rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .photo-search-area h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .photo-search-area p {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin: 4px 0 16px;
+        }
+        .photo-search-area .upload-btn-wrapper {
+            display: inline-block;
+            position: relative;
+        }
+        .photo-search-area .upload-btn-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .photo-search-area .search-preview {
+            display: none;
+            margin: 16px auto 0;
+            max-width: 150px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .photo-search-area .search-preview img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .photo-search-area .search-preview.show {
+            display: block;
+        }
+        .photo-search-area .search-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        /* ===== FORMS & MODAL ===== */
+        .form-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 20px 22px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+            border: 1px solid #eef2f6;
+        }
+        .form-card .form-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+        .form-group label .required {
+            color: #dc2626;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== PHOTO UPLOAD ===== */
+        .photo-upload-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1.5px dashed #d1d5db;
+            transition: border 0.3s;
+        }
+        .photo-upload-area:hover {
+            border-color: #2563eb;
+        }
+        .photo-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .photo-preview .placeholder {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+        .upload-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 140px;
+        }
+        .upload-controls .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .upload-controls .btn-group label {
+            margin: 0;
+            cursor: pointer;
+        }
+        .upload-controls .hint {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        /* ===== BILLING ===== */
+        .bill-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        .bill-items-table th {
+            background: #f1f5f9;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .bill-items-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #eef2f6;
+            vertical-align: middle;
+        }
+        .bill-items-table input {
+            padding: 4px 8px;
+            font-size: 0.85rem;
+            min-width: 50px;
+        }
+        .bill-items-table .qty-input {
+            width: 70px;
+        }
+        .bill-items-table .price-input {
+            width: 90px;
+        }
+        .bill-totals {
+            background: #f8fafc;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-top: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .bill-totals .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.95rem;
+        }
+        .bill-totals .total-row.grand {
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-top: 2px solid #d1d5db;
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+        .bill-totals .total-row input {
+            width: 130px;
+            padding: 4px 10px;
+            text-align: right;
+        }
+        .bill-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.open {
+            display: flex;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 18px;
+            max-width: 560px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalIn 0.25s ease;
+        }
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        .modal-box .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .modal-box .modal-header h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .modal-box .modal-close {
+            background: transparent;
+            font-size: 1.8rem;
+            color: #94a3b8;
+            padding: 0 8px;
+        }
+        .modal-box .modal-close:hover {
+            color: #1e293b;
+        }
+        .sell-qty-input {
+            font-size: 2.2rem;
+            padding: 14px;
+            text-align: center;
+            font-weight: 700;
+            border-radius: 12px;
+        }
+
+        /* ===== LOW STOCK ===== */
+        .low-stock-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 10px 14px;
+            border-left: 4px solid #dc2626;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 8px;
+        }
+        .low-stock-item .thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 6px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .low-stock-item .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .low-stock-item .details {
+            flex: 1;
+        }
+        .low-stock-item .details .name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .low-stock-item .details .stock {
+            font-weight: 700;
+            color: #dc2626;
+            font-size: 1rem;
+        }
+        .low-stock-item .badge {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* ===== PRINT ===== */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea,
+            #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: #fff;
+                padding: 5mm 7mm;
+                font-size: 9px;
+                color: #000;
+                font-family: Arial, Helvetica, sans-serif;
+                box-sizing: border-box;
+            }
+            @page {
+                size: A4;
+                margin: 5mm 7mm;
+            }
+            #printArea .bill-header {
+                text-align: center;
+                margin-bottom: 4px;
+                border-bottom: 1px solid #000;
+                padding-bottom: 3px;
+            }
+            #printArea .bill-header h2 {
+                font-size: 14px;
+                margin: 0;
+            }
+            #printArea table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 3px 0;
+                font-size: 8px;
+            }
+            #printArea table th,
+            #printArea table td {
+                border: 1px solid #000;
+                padding: 2px 4px;
+                text-align: left;
+            }
+            #printArea table th {
+                background: #eee;
+                font-weight: 700;
+            }
+            #printArea .totals-print {
+                margin-top: 4px;
+                text-align: right;
+                font-size: 9px;
+                border-top: 1px solid #000;
+                padding-top: 3px;
+            }
+            #printArea .totals-print .grand {
+                font-weight: 700;
+                font-size: 12px;
+                border-top: 1px solid #000;
+                padding-top: 3px;
+            }
+            #printArea .footer-print {
+                text-align: center;
+                margin-top: 6px;
+                font-size: 7px;
+                color: #444;
+                border-top: 1px solid #ccc;
+                padding-top: 3px;
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .app-header .brand h1 {
+                font-size: 1rem;
+            }
+            .header-search {
+                min-width: 140px;
+                order: 10;
+                flex-basis: 100%;
+                max-width: 100%;
+                margin: 4px 0 0;
+            }
+            .nav-tabs {
+                top: 110px;
+            }
+            .nav-tabs button {
+                padding: 6px 12px;
+                font-size: 0.75rem;
+            }
+            .product-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .photo-search-area {
+                padding: 16px;
+            }
+        }
+        @media (max-width: 480px) {
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+            .app-header .container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .app-header .shop-info {
+                text-align: left;
+                width: 100%;
+            }
+            .header-search {
+                order: 0;
+            }
+            .nav-tabs {
+                top: 130px;
+            }
+            .nav-tabs button {
+                padding: 5px 8px;
+                font-size: 0.7rem;
+            }
+            .photo-upload-area {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .photo-preview {
+                width: 100%;
+                height: 120px;
+            }
+        }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 22px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35); transition: transform 0.3s, box-shadow 0.3s;
+            z-index: 9999;
+            font-weight: 500;
+            max-width: 400px;
+            animation: slideUp 0.3s ease;
+            display: none;
+        }
+        .toast.show {
+            display: block;
+        }
+        .toast.success {
+            background: #16a34a;
+        }
+        .toast.error {
+            background: #dc2626;
+        }
+        .toast.warning {
+            background: #d97706;
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .text-muted {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .text-danger {
+            color: #dc2626;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-16 {
+            margin-top: 16px;
+        }
+        .flex {
+            display: flex;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .gap-8 {
+            gap: 8px;
+        }
+        .gap-12 {
+            gap: 12px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .w-full {
+            width: 100%;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <div class="container">
+            <div class="brand">
+                <h1>🏪 Aditya Business Centre</h1>
+                <span>Online Sync • <span id="syncStatus" class="sync-badge">☁️ Live</span></span>
+            </div>
+            <div class="header-search" id="globalSearchContainer">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="globalSearchInput" placeholder="Search by name or code..." autocomplete="off" oninput="handleGlobalSearch(this.value)">
+                <button class="clear-search" id="clearGlobalSearch" onclick="clearGlobalSearch()">✕</button>
+                <div class="search-dropdown" id="globalSearchDropdown"></div>
+            </div>
+            <div class="shop-info">
+                <strong>📍 MuhiuddinPur Chauraha</strong><br>
+                📞 9198566233
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== NAVIGATION ===== -->
+    <nav class="nav-tabs" id="navTabs">
+        <div class="container">
+            <button class="active" data-tab="dashboard">📊 Dashboard</button>
+            <button data-tab="stock">📦 Stock</button>
+            <button data-tab="billing">🧾 Billing</button>
+            <button data-tab="reports">📈 Reports</button>
+            <button data-tab="settings">⚙️ Settings</button>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <!-- ===== DASHBOARD ===== -->
+        <section class="tab-content active" id="tab-dashboard">
+            <h2 class="section-title">📊 Dashboard</h2>
+            <p class="section-sub">आपके व्यवसाय का त्वरित अवलोकन</p>
+            <div class="card-grid" id="dashboardStats"></div>
+
+            <div class="photo-search-area" id="photoSearchArea">
+                <span class="search-icon-big">📸</span>
+                <h3>Photo Search Bar</h3>
+                <p>Product की Photo Upload करें — System मिलते-जुलते Products ढूँढेगा</p>
+                <div class="upload-btn-wrapper">
+                    <button class="btn btn-primary">📤 Choose Photo</button>
+                    <input type="file" id="photoSearchInput" accept="image/*" onchange="handlePhotoSearch(event)">
+                </div>
+                <div class="search-preview" id="searchPreview">
+                    <img id="searchPreviewImg" src="" alt="Search Photo">
+                </div>
+                <div class="search-actions">
+                    <button class="btn btn-outline btn-sm" onclick="clearPhotoSearch()">✕ Clear</button>
+                    <button class="btn btn-success btn-sm" onclick="performPhotoSearch()" id="searchBtn">🔍 Search</button>
+                </div>
+                <p class="text-muted mt-8" style="font-size:0.8rem;">📌 Drag & Drop photo here or click to upload — Max 50MB</p>
+            </div>
+
+            <div id="photoSearchResults" class="product-grid" style="margin-top:12px;"></div>
+            <p class="text-muted mt-8" id="photoSearchEmpty">🔎 Upload a photo to search visually similar products</p>
+
+            <div class="form-card mt-16">
+                <h3 class="form-title">🔔 Low Stock Alert</h3>
+                <div id="lowStockAlertList"></div>
+                <p class="text-muted mt-8" id="noLowStock">✅ सभी products का stock सीमा से अधिक है।</p>
+            </div>
+        </section>
+
+        <!-- ===== STOCK ===== -->
+        <section class="tab-content" id="tab-stock">
+            <div class="flex-between">
+                <div>
+                    <h2 class="section-title">📦 Stock Management</h2>
+                    <p class="section-sub">सभी products को manage करें</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAddProductModal()">➕ Add Product</button>
+            </div>
+            <div class="flex gap-8" style="margin:16px 0;">
+                <input type="text" id="stockSearchInput" placeholder="Search by Name or Code..." style="flex:1;min-width:200px;" oninput="renderProductList()">
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('stockSearchInput').value='';renderProductList();">✕ Clear</button>
+            </div>
+            <div id="productListContainer"></div>
+        </section>
+
+        <!-- ===== BILLING ===== -->
+        <section class="tab-content" id="tab-billing">
+            <h2 class="section-title">🧾 Billing System</h2>
+            <p class="section-sub">मैन्युअल बिल — स्टॉक अपने आप नहीं घटेगा।</p>
+            <div class="form-card">
+                <div class="form-title">बिल विवरण</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer Name <span class="required">*</span></label>
+                        <input type="text" id="billCustomer" placeholder="ग्राहक का नाम">
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="billDate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bill Number</label>
+                        <input type="text" id="billNumber" placeholder="जैसे: BILL-001">
+                    </div>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-outline btn-sm" onclick="generateBillNumber()">🔄 Auto Generate</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-card">
+                <div class="flex-between">
+                    <div class="form-title">बिल आइटम्स</div>
+                    <button class="btn btn-primary btn-sm" onclick="addBillRow()">➕ Add Item</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="bill-items-table">
+                        <thead><tr><th>#</th><th>Product</th><th>Code</th><th>Qty</th><th>Price (₹)</th><th>Amount</th><th>Action</th></tr></thead>
+                        <tbody id="billItemsBody"></tbody>
+                    </table>
+                </div>
+                <button class="btn btn-outline btn-sm mt-8" onclick="addBillRow()">➕ Add More</button>
+                <div class="bill-totals">
+                    <div class="total-row"><span>Sub Total</span> <span id="billSubTotal">₹ 0</span></div>
+                    <div class="total-row"><span>Discount (₹)</span> <input type="number" id="billDiscount" value="0" min="0" step="0.01" oninput="calculateBillTotals()"></div>
+                    <div class="total-row grand"><span>Grand Total</span> <span id="billGrandTotal">₹ 0</span></div>
+                    <div class="total-row"><span>Paid Amount (₹)</span> <input type="number" id="billPaid" value="0" min="0" step="0.01" oninput="calculateBillTotals()"></div>
+                    <div class="total-row"><span>Due Amount</span> <span id="billDue">₹ 0</span></div>
+                </div>
+                <div class="bill-actions">
+                    <button class="btn btn-success" onclick="confirmBillAndUpdateStock()">✅ Update Stock / Sale Confirm</button>
+                    <button class="btn btn-primary" onclick="printBill()">🖨️ Print Bill</button>
+                    <button class="btn btn-outline" onclick="clearBillForm()">🗑️ Clear Bill</button>
+                </div>
+            </div>
+            <div id="printArea" style="display:none;"></div>
+        </section>
+
+        <!-- ===== REPORTS ===== -->
+        <section class="tab-content" id="tab-reports">
+            <h2 class="section-title">📈 Reports</h2>
+            <p class="section-sub">व्यवसाय के सभी महत्वपूर्ण आँकड़े</p>
+            <div class="card-grid" id="reportsStats"></div>
+            <div class="form-card mt-16">
+                <h3 class="form-title">📋 Low Stock Products</h3>
+                <div id="reportsLowStock" class="product-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));"></div>
+            </div>
+        </section>
+
+        <!-- ===== SETTINGS ===== -->
+        <section class="tab-content" id="tab-settings">
+            <h2 class="section-title">⚙️ Settings</h2>
+            <div class="form-card">
+                <div class="form-title">☁️ Firebase Sync</div>
+                <p style="font-size:0.9rem;color:#475569;margin-bottom:12px;">
+                    डेटा Firebase Firestore में स्टोर होता है — सभी डिवाइस पर ऑटो-सिंक।
+                </p>
+                <div class="flex gap-8" style="flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" onclick="forceResync()">🔄 Force Resync</button>
+                    <button class="btn btn-outline btn-sm" onclick="exportBackup()">📤 Export Backup (JSON)</button>
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFileInput').click();">📥 Import Backup (JSON)</button>
+                    <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importBackup(event)">
+                </div>
+            </div>
+            <div class="form-card">
+                <div class="form-title">📊 Data Summary</div>
+                <p id="dataSummary"></p>
+                <button class="btn btn-danger btn-sm mt-8" onclick="clearAllData()">⚠️ Clear All Data (Remote)</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== MODAL: ADD/EDIT PRODUCT ===== -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Add Product</h2>
+                <button class="modal-close" onclick="closeModal('productModal')">&times;</button>
+            </div>
+            <form id="productForm" onsubmit="saveProduct(event)">
+                <input type="hidden" id="editProductId">
+                <div class="form-group">
+                    <label>Product Photo (Max 50MB)</label>
+                    <div class="photo-upload-area">
+                        <div class="photo-preview" id="photoPreview">
+                            <span class="placeholder">🖼️<br>No Photo</span>
+                        </div>
+                        <div class="upload-controls">
+                            <div class="btn-group">
+                                <label for="productPhoto" class="btn btn-outline btn-sm" style="cursor:pointer;">📁 Choose Photo</label>
+                                <input type="file" id="productPhoto" accept="image/*" onchange="previewPhoto(event)" style="display:none;">
+                                <button type="button" class="btn btn-danger btn-sm" onclick="removePhoto()">✕ Remove</button>
+                            </div>
+                            <span class="hint">Max size: 50MB (JPEG, PNG, WebP)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Product Name <span class="required">*</span></label>
+                        <input type="text" id="productName" placeholder="जैसे: Card A" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Product Code</label>
+                        <input type="text" id="productCode" placeholder="जैसे: CARD-001">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Purchase Price (₹)</label>
+                        <input type="number" id="productPurchasePrice" placeholder="0" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Selling Price (₹) <span class="required">*</span></label>
+                        <input type="number" id="productSellingPrice" placeholder="0" min="0" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Total Stock Received <span class="required">*</span></label>
+                        <input type="number" id="productTotalStock" placeholder="0" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Low Stock Limit <span class="required">*</span></label>
+                        <input type="number" id="productLowLimit" placeholder="5" min="0" step="1" required>
+                    </div>
+                </div>
+                <div class="flex gap-8" style="margin-top:16px;">
+                    <button type="submit" class="btn btn-primary" style="flex:1;">💾 Save Product</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal('productModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== MODAL: SELL ===== -->
+    <div class="modal-overlay" id="sellModal">
+        <div class="modal-box" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>💰 Sell Product</h2>
+                <button class="modal-close" onclick="closeModal('sellModal')">&times;</button>
+            </div>
+            <div id="sellProductInfo" class="mb-16">
+                <p><strong id="sellProductName">Product</strong></p>
+                <p>Current Stock: <strong id="sellCurrentStock">0</strong></p>
+            </div>
+            <div class="form-group">
+                <label>Quantity <span class="required">*</span></label>
+                <input type="number" id="sellQuantity" class="sell-qty-input" placeholder="0" min="1" step="1" autofocus>
+            </div>
+            <div class="flex gap-8" style="margin-top:12px;">
+                <button class="btn btn-success" style="flex:1;" onclick="confirmSell()">✅ Sell</button>
+                <button class="btn btn-outline" onclick="closeModal('sellModal')">Cancel</button>
+            </div>
+            <p id="sellError" class="text-danger mt-8" style="display:none;"></p>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <div class="toast" id="toast"></div>
+
+    <!-- ============================================================ -->
+    <!-- ===== JAVASCRIPT ===== -->
+    <!-- ============================================================ -->
+    <script>
+        // =================================================================
+        // 1. FIREBASE CONFIG — आप अपना Config यहाँ डालें
+        // =================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKeyReplaceMe",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        let db = null;
+        let isFirebaseReady = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            // Enable offline persistence
+            db.enablePersistence({ synchronizeTabs: true })
+                .then(() => { console.log('🔥 Offline persistence enabled'); })
+                .catch((err) => { console.warn('Persistence error:', err); });
+            isFirebaseReady = true;
+            console.log('🔥 Firebase initialized');
+        } catch (e) {
+            console.warn('Firebase init failed, using localStorage fallback.', e);
+            isFirebaseReady = false;
+        }
+
+        // =================================================================
+        // 2. DATA LAYER (Firestore + localStorage cache)
+        // =================================================================
+        const STORAGE_KEY = 'aditya_online_data';
+
+        // In-memory cache
+        let products = [];
+        let bills = [];
+        let sales = [];
+        let billCounter = 0;
+
+        // Listeners
+        let unsubProducts = null;
+        let unsubBills = null;
+        let unsubSales = null;
+        let unsubCounter = null;
+
+        function getDefaultData() {
+            return { products: [], bills: [], sales: [], billCounter: 0 };
+        }
+
+        function loadCache() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    products = parsed.products || [];
+                    bills = parsed.bills || [];
+                    sales = parsed.sales || [];
+                    billCounter = parsed.billCounter || 0;
+                    return;
+                }
+            } catch (e) {}
+            products = [];
+            bills = [];
+            sales = [];
+            billCounter = 0;
+        }
+
+        function saveCache() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    products,
+                    bills,
+                    sales,
+                    billCounter
+                }));
+            } catch (e) {}
+        }
+
+        // ===== FIX: Auto-save on browser/tab close =====
+        window.addEventListener('beforeunload', function(e) {
+            saveCache();
+        });
+
+        function setSyncStatus(status, msg) {
+            const el = document.getElementById('syncStatus');
+            if (!el) return;
+            el.className = 'sync-badge';
+            if (status === 'syncing') { el.className = 'sync-badge syncing';
+                el.textContent = '⏳ Syncing...'; } else if (status === 'offline') { el.className =
+                    'sync-badge offline';
+                el.textContent = '📡 Offline'; } else { el.textContent = '☁️ Live'; }
+            if (msg) showToast(msg, 'info');
+        }
+
+        // ----- Firestore Listeners -----
+        function startFirestoreListeners() {
+            if (!isFirebaseReady || !db) {
+                loadCache();
+                renderAll();
+                return;
+            }
+
+            setSyncStatus('syncing', 'Connecting...');
+
+            // Products
+            if (unsubProducts) unsubProducts();
+            unsubProducts = db.collection('products').onSnapshot((snap) => {
+                const list = [];
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    list.push(d);
+                });
+                products = list;
+                saveCache();
+                renderAll();
+                setSyncStatus('live');
+            }, (err) => {
+                console.warn('Products listener error:', err);
+                setSyncStatus('offline', 'Offline mode');
+                loadCache();
+                renderAll();
+            });
+
+            // Bills
+            if (unsubBills) unsubBills();
+            unsubBills = db.collection('bills').onSnapshot((snap) => {
+                const list = [];
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    list.push(d);
+                });
+                bills = list;
+                saveCache();
+                renderAll();
+            });
+
+            // Sales
+            if (unsubSales) unsubSales();
+            unsubSales = db.collection('sales').onSnapshot((snap) => {
+                const list = [];
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    d.id = doc.id;
+                    list.push(d);
+                });
+                sales = list;
+                saveCache();
+                renderAll();
+            });
+
+            // Bill Counter
+            if (unsubCounter) unsubCounter();
+            unsubCounter = db.collection('meta').doc('billCounter').onSnapshot((doc) => {
+                if (doc.exists) {
+                    billCounter = doc.data().value || 0;
+                } else {
+                    billCounter = 0;
+                }
+                saveCache();
+                renderAll();
+            });
+        }
+
+        // ----- Firestore Write Helpers -----
+        async function firestoreSet(collection, id, data) {
+            if (!isFirebaseReady || !db) {
+                // Fallback: save to cache only
+                return;
+            }
+            try {
+                await db.collection(collection).doc(id).set(data, { merge: true });
+            } catch (e) {
+                console.warn('Firestore write error:', e);
+                showToast('⚠️ Sync error: ' + e.message, 'error');
+            }
+        }
+
+        async function firestoreDelete(collection, id) {
+            if (!isFirebaseReady || !db) return;
+            try {
+                await db.collection(collection).doc(id).delete();
+            } catch (e) {
+                console.warn('Firestore delete error:', e);
+            }
+        }
+
+        async function firestoreUpdateCounter(value) {
+            if (!isFirebaseReady || !db) return;
+            try {
+                await db.collection('meta').doc('billCounter').set({ value }, { merge: true });
+            } catch (e) {}
+        }
+
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
+
+        // =================================================================
+        // 3. BUSINESS LOGIC
+        // =================================================================
+        function getProducts() { return products; }
+
+        function getProductById(id) { return products.find(p => p.id === id); }
+
+        function addProduct(product) {
+            product.id = generateId();
+            products.push(product);
+            saveCache();
+            firestoreSet('products', product.id, product);
+            renderAll();
+            showToast('✅ Product added!', 'success');
+        }
+
+        function updateProduct(id, updated) {
+            const idx = products.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            products[idx] = { ...products[idx], ...updated };
+            saveCache();
+            firestoreSet('products', id, products[idx]);
+            renderAll();
+            showToast('✅ Product updated!', 'success');
+        }
+
+        function deleteProduct(id) {
+            if (!confirm('⚠️ क्या आप इस product को delete करना चाहते हैं?')) return;
+            products = products.filter(p => p.id !== id);
+            saveCache();
+            firestoreDelete('products', id);
+            renderAll();
+            showToast('🗑️ Product deleted.', 'warning');
+        }
+
+        function sellProduct(id, quantity) {
+            const p = getProductById(id);
+            if (!p) return { success: false, msg: 'Product not found' };
+            const current = p.totalStockReceived - p.stockSold;
+            if (quantity <= 0) return { success: false, msg: 'Quantity must be positive' };
+            if (quantity > current) return { success: false, msg: `Only ${current} items available` };
+            p.stockSold += quantity;
+            const saleRecord = {
+                id: generateId(),
+                productId: p.id,
+                productName: p.name,
+                quantity: quantity,
+                price: p.sellingPrice,
+                total: quantity * p.sellingPrice,
+                date: new Date().toISOString().split('T')[0],
+                billNumber: null,
+                createdAt: new Date().toISOString()
+            };
+            sales.push(saleRecord);
+            saveCache();
+            firestoreSet('products', p.id, p);
+            firestoreSet('sales', saleRecord.id, saleRecord);
+            renderAll();
+            return { success: true, msg: `Sold ${quantity} of ${p.name}` };
+        }
+
+        // =================================================================
+        // 4. BILL FUNCTIONS (same as before, but sync to Firestore)
+        // =================================================================
+        let billItems = [];
+
+        function addBillRow(name = '', code = '', qty = 1, price = 0) {
+            billItems.push({ id: 'row_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4), name, code, qty: Number(
+                    qty) || 0, price: Number(price) || 0 });
+            renderBillItems();
+        }
+
+        function removeBillRow(id) {
+            billItems = billItems.filter(r => r.id !== id);
+            renderBillItems();
+        }
+
+        function updateBillItem(id, field, value) {
+            const item = billItems.find(r => r.id === id);
+            if (!item) return;
+            if (field === 'qty' || field === 'price') item[field] = parseFloat(value) || 0;
+            else item[field] = value;
+            renderBillItems();
+        }
+
+        function renderBillItems() {
+            const tbody = document.getElementById('billItemsBody');
+            if (billItems.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="7" class="text-center text-muted" style="padding:16px;">कोई आइटम नहीं — "Add Item" बटन से जोड़ें</td></tr>`;
+                calculateBillTotals();
+                return;
+            }
+            let html = '';
+            billItems.forEach((item, idx) => {
+                const amount = (item.qty * item.price) || 0;
+                html += `
+                            <tr>
+                                <td>${idx+1}</td>
+                                <td><input type="text" value="${escapeHtml(item.name)}" placeholder="Product name" onchange="updateBillItem('${item.id}','name',this.value)" style="min-width:70px;"></td>
+                                <td><input type="text" value="${escapeHtml(item.code)}" placeholder="Code" onchange="updateBillItem('${item.id}','code',this.value)" style="min-width:50px;"></td>
+                                <td><input type="number" class="qty-input" value="${item.qty}" min="0" step="1" onchange="updateBillItem('${item.id}','qty',this.value)"></td>
+                                <td><input type="number" class="price-input" value="${item.price}" min="0" step="0.01" onchange="updateBillItem('${item.id}','price',this.value)"></td>
+                                <td><strong>₹ ${amount.toFixed(2)}</strong></td>
+                                <td><button class="btn btn-danger btn-sm" onclick="removeBillRow('${item.id}')">✕</button></td>
+                            </tr>
+                        `;
+            });
+            tbody.innerHTML = html;
+            calculateBillTotals();
+        }
+
+        function calculateBillTotals() {
+            let subTotal = 0;
+            billItems.forEach(item => { subTotal += (item.qty * item.price) || 0; });
+            const discount = parseFloat(document.getElementById('billDiscount').value) || 0;
+            const grandTotal = Math.max(0, subTotal - discount);
+            const paid = parseFloat(document.getElementById('billPaid').value) || 0;
+            const due = Math.max(0, grandTotal - paid);
+            document.getElementById('billSubTotal').textContent = '₹ ' + subTotal.toFixed(2);
+            document.getElementById('billGrandTotal').textContent = '₹ ' + grandTotal.toFixed(2);
+            document.getElementById('billDue').textContent = '₹ ' + due.toFixed(2);
+        }
+
+        function generateBillNumber() {
+            const d = new Date();
+            const ds = d.getFullYear().toString().slice(2) +
+                String(d.getMonth() + 1).padStart(2, '0') +
+                String(d.getDate()).padStart(2, '0');
+            billCounter = (billCounter || 0) + 1;
+            const bn = 'BILL-' + ds + '-' + String(billCounter).padStart(4, '0');
+            document.getElementById('billNumber').value = bn;
+            saveCache();
+            firestoreUpdateCounter(billCounter);
+            showToast('Bill Number generated: ' + bn, 'success');
+        }
+
+        function clearBillForm() {
+            if (billItems.length > 0 && !confirm('Clear all bill items?')) return;
+            billItems = [];
+            document.getElementById('billCustomer').value = '';
+            document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('billNumber').value = '';
+            document.getElementById('billDiscount').value = '0';
+            document.getElementById('billPaid').value = '0';
+            renderBillItems();
+            showToast('Bill cleared.', 'warning');
+        }
+
+        function confirmBillAndUpdateStock() {
+            if (billItems.length === 0) { showToast('❌ Bill में कोई item नहीं है।', 'error'); return; }
+            const customer = document.getElementById('billCustomer').value.trim();
+            if (!customer) { showToast('❌ कृपया Customer Name डालें।', 'error'); return; }
+            let errors = [],
+                soldItems = [];
+            const allProducts = getProducts();
+            billItems.forEach(item => {
+                if (!item.name.trim()) { errors.push('एक item का नाम खाली है।'); return; }
+                if (item.qty <= 0 || item.price <= 0) { errors.push(`${item.name} के लिए quantity और price सही डालें।`);
+                    return; }
+                const match = allProducts.find(p => p.name.toLowerCase() === item.name.trim().toLowerCase());
+                if (!match) { errors.push(`Product "${item.name}" stock में नहीं मिला।`); return; }
+                const available = match.totalStockReceived - match.stockSold;
+                if (item.qty > available) { errors.push(`"${match.name}" के लिए केवल ${available} stock उपलब्ध है।`);
+                    return; }
+                soldItems.push({ product: match, qty: item.qty, price: item.price });
+            });
+            if (errors.length > 0) { showToast('❌ ' + errors.join(' | '), 'error'); return; }
+            if (!confirm(`✅ क्या आप ${soldItems.length} items के लिए stock update करना चाहते हैं?`)) return;
+            let totalSaleAmount = 0;
+            const billNumber = document.getElementById('billNumber').value || 'MANUAL-' + Date.now();
+            const billDate = document.getElementById('billDate').value || new Date().toISOString().split('T')[0];
+            const billDiscount = parseFloat(document.getElementById('billDiscount').value) || 0;
+            const billPaid = parseFloat(document.getElementById('billPaid').value) || 0;
+
+            soldItems.forEach(si => {
+                si.product.stockSold += si.qty;
+                totalSaleAmount += si.qty * si.price;
+                const saleRec = {
+                    id: generateId(),
+                    productId: si.product.id,
+                    productName: si.product.name,
+                    quantity: si.qty,
+                    price: si.price,
+                    total: si.qty * si.price,
+                    date: billDate,
+                    billNumber: billNumber,
+                    createdAt: new Date().toISOString()
+                };
+                sales.push(saleRec);
+                firestoreSet('sales', saleRec.id, saleRec);
+                firestoreSet('products', si.product.id, si.product);
+            });
+
+            const subTotal = billItems.reduce((sum, i) => sum + (i.qty * i.price), 0);
+            const grandTotal = Math.max(0, subTotal - billDiscount);
+            const due = Math.max(0, grandTotal - billPaid);
+
+            const billRecord = {
+                id: generateId(),
+                customer: customer,
+                date: billDate,
+                billNumber: billNumber,
+                items: JSON.parse(JSON.stringify(billItems)),
+                discount: billDiscount,
+                paid: billPaid,
+                subTotal: subTotal,
+                grandTotal: grandTotal,
+                due: due,
+                createdAt: new Date().toISOString()
+            };
+            bills.push(billRecord);
+            firestoreSet('bills', billRecord.id, billRecord);
+            saveCache();
+            renderAll();
+            showToast(`✅ Stock updated! ${soldItems.length} items sold. Total ₹${totalSaleAmount.toFixed(2)}`, 'success');
+            billItems = [];
+            document.getElementById('billCustomer').value = '';
+            document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('billNumber').value = '';
+            document.getElementById('billDiscount').value = '0';
+            document.getElementById('billPaid').value = '0';
+            renderBillItems();
+        }
+
+        function printBill() {
+            if (billItems.length === 0) { showToast('❌ Bill में कोई item नहीं है।', 'error'); return; }
+            const customer = document.getElementById('billCustomer').value.trim() || 'N/A';
+            const date = document.getElementById('billDate').value || new Date().toISOString().split('T')[0];
+            const billNo = document.getElementById('billNumber').value || 'MANUAL-' + Date.now();
+            const discount = parseFloat(document.getElementById('billDiscount').value) || 0;
+            const paid = parseFloat(document.getElementById('billPaid').value) || 0;
+            let subTotal = 0,
+                rows = '';
+            billItems.forEach((item, idx) => {
+                const amt = (item.qty * item.price) || 0;
+                subTotal += amt;
+                rows += `
+                            <tr>
+                                <td>${idx+1}</td>
+                                <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.code) || '-'}</td>
+                                <td style="text-align:center;">${item.qty}</td>
+                                <td style="text-align:right;">₹ ${item.price.toFixed(2)}</td>
+                                <td style="text-align:right;">₹ ${amt.toFixed(2)}</td>
+                            </tr>
+                        `;
+            });
+            const grand = Math.max(0, subTotal - discount);
+            const due = Math.max(0, grand - paid);
+            const printHTML = `
+                        <div class="bill-header">
+                            <h2>🏪 ADITYA BUSINESS CENTRE</h2>
+                            <p>📍 MuhiuddinPur Chauraha &nbsp;|&nbsp; 📞 9198566233</p>
+                            <p><strong>Bill No:</strong> ${billNo} &nbsp;|&nbsp; <strong>Date:</strong> ${date}</p>
+                            <p><strong>Customer:</strong> ${escapeHtml(customer)}</p>
+                        </div>
+                        <table>
+                            <thead><tr><th>#</th><th>Product</th><th>Code</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Amount</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                        <div class="totals-print">
+                            <div>Sub Total: ₹ ${subTotal.toFixed(2)}</div>
+                            <div>Discount: ₹ ${discount.toFixed(2)}</div>
+                            <div class="grand">Grand Total: ₹ ${grand.toFixed(2)}</div>
+                            <div>Paid: ₹ ${paid.toFixed(2)}</div>
+                            <div>Due: ₹ ${due.toFixed(2)}</div>
+                        </div>
+                        <div class="footer-print">Thank you! Visit again.</div>
+                    `;
+            const printArea = document.getElementById('printArea');
+            printArea.innerHTML = printHTML;
+            printArea.style.display = 'block';
+            setTimeout(() => { window.print();
+                setTimeout(() => { printArea.style.display = 'none'; }, 500); }, 300);
+        }
+
+        // =================================================================
+        // 5. GLOBAL SEARCH (Text)
+        // =================================================================
+        function handleGlobalSearch(query) {
+            const dropdown = document.getElementById('globalSearchDropdown');
+            const clearBtn = document.getElementById('clearGlobalSearch');
+            query = query.trim();
+            if (query.length < 1) { dropdown.classList.remove('open');
+                clearBtn.classList.remove('visible'); return; }
+            clearBtn.classList.add('visible');
+            const allProducts = getProducts();
+            const results = allProducts.filter(p =>
+                p.name.toLowerCase().includes(query.toLowerCase()) ||
+                (p.code && p.code.toLowerCase().includes(query.toLowerCase()))
+            );
+            if (results.length === 0) {
+                dropdown.innerHTML = `<div class="no-result">❌ कोई product नहीं मिला</div>`;
+                dropdown.classList.add('open');
+                return;
+            }
+            dropdown.innerHTML = results.map(p => {
+                const cur = p.totalStockReceived - p.stockSold;
+                const isLow = cur <= p.lowStockLimit;
+                const photoHtml = p.photo ? `<img src="${p.photo}">` :
+                    `<span style="font-size:1.5rem;opacity:0.3;">🖼️</span>`;
+                return `
+                            <div class="result-item" onclick="selectSearchResult('${p.id}')">
+                                <div class="thumb">${photoHtml}</div>
+                                <div class="info">
+                                    <div class="name">${escapeHtml(p.name)}</div>
+                                    <div class="stock ${isLow ? 'low' : ''}">📦 ${cur} in stock</div>
+                                </div>
+                            </div>
+                        `;
+            }).join('');
+            dropdown.classList.add('open');
+        }
+
+        function selectSearchResult(id) {
+            document.querySelectorAll('#navTabs button').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-tab="stock"]').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-stock').classList.add('active');
+            const p = getProductById(id);
+            if (p) {
+                document.getElementById('stockSearchInput').value = p.name;
+                renderProductList();
+            }
+            document.getElementById('globalSearchDropdown').classList.remove('open');
+            document.getElementById('globalSearchInput').value = '';
+            document.getElementById('clearGlobalSearch').classList.remove('visible');
+            setTimeout(() => {
+                const cards = document.querySelectorAll('.product-card');
+                for (let card of cards) {
+                    if (card.textContent.includes(p ? p.name : '')) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        card.style.border = '3px solid #2563eb';
+                        setTimeout(() => { card.style.border = ''; }, 3000);
+                        break;
+                    }
+                }
+            }, 300);
+        }
+
+        function clearGlobalSearch() {
+            document.getElementById('globalSearchInput').value = '';
+            document.getElementById('globalSearchDropdown').classList.remove('open');
+            document.getElementById('clearGlobalSearch').classList.remove('visible');
+        }
+
+        // =================================================================
+        // 6. PHOTO SEARCH (same as before)
+        // =================================================================
+        let currentSearchPhotoData = null;
+        let currentSearchPhotoHash = null;
+
+        function computeImageHash(imageData) {
+            const size = 8;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.src = imageData;
+            return new Promise((resolve) => {
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, size, size);
+                    const data = ctx.getImageData(0, 0, size, size).data;
+                    let sum = 0;
+                    const gray = [];
+                    for (let i = 0; i < data.length; i += 4) {
+                        const g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        gray.push(g);
+                        sum += g;
+                    }
+                    const avg = sum / gray.length;
+                    let hash = '';
+                    for (let i = 0; i < gray.length; i++) {
+                        hash += (gray[i] > avg) ? '1' : '0';
+                    }
+                    resolve(hash);
+                };
+                img.onerror = function() { resolve(null); };
+            });
+        }
+
+        function hammingDistance(hash1, hash2) {
+            if (!hash1 || !hash2 || hash1.length !== hash2.length) return 999;
+            let diff = 0;
+            for (let i = 0; i < hash1.length; i++) {
+                if (hash1[i] !== hash2[i]) diff++;
+            }
+            return diff;
+        }
+
+        const photoArea = document.getElementById('photoSearchArea');
+        photoArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        photoArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+        photoArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    handlePhotoFile(file);
+                } else {
+                    showToast('❌ कृपया Image file upload करें।', 'error');
+                }
+            }
+        });
+
+        function handlePhotoSearch(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            handlePhotoFile(file);
+            event.target.value = '';
+        }
+
+        function handlePhotoFile(file) {
+            if (file.size > 50 * 1024 * 1024) {
+                showToast('❌ फोटो 50MB से बड़ी है। कृपया छोटी फोटो चुनें।', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentSearchPhotoData = e.target.result;
+                const preview = document.getElementById('searchPreview');
+                const img = document.getElementById('searchPreviewImg');
+                img.src = e.target.result;
+                preview.classList.add('show');
+                document.getElementById('photoSearchEmpty').textContent = '📸 Photo uploaded! Click "Search" to find matching products.';
+                showToast('✅ Photo uploaded! Click Search.', 'success');
+                setTimeout(() => performPhotoSearch(), 500);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearPhotoSearch() {
+            currentSearchPhotoData = null;
+            currentSearchPhotoHash = null;
+            document.getElementById('searchPreview').classList.remove('show');
+            document.getElementById('searchPreviewImg').src = '';
+            document.getElementById('photoSearchResults').innerHTML = '';
+            document.getElementById('photoSearchEmpty').textContent = '🔎 Upload a photo to search visually similar products';
+            document.getElementById('photoSearchInput').value = '';
+        }
+
+        async function performPhotoSearch() {
+            if (!currentSearchPhotoData) {
+                showToast('❌ कृपया पहले Photo upload करें।', 'warning');
+                return;
+            }
+            showToast('⏳ Searching... Please wait.', 'warning');
+            const searchHash = await computeImageHash(currentSearchPhotoData);
+            if (!searchHash) {
+                showToast('❌ Photo processing failed. Try another photo.', 'error');
+                return;
+            }
+            currentSearchPhotoHash = searchHash;
+            const allProducts = getProducts();
+            const results = [];
+            for (const p of allProducts) {
+                if (!p.photo) continue;
+                let productHash = p.photoHash;
+                if (!productHash) {
+                    productHash = await computeImageHash(p.photo);
+                    if (productHash) {
+                        p.photoHash = productHash;
+                        firestoreSet('products', p.id, p);
+                    } else {
+                        continue;
+                    }
+                }
+                const dist = hammingDistance(searchHash, productHash);
+                if (dist <= 20) {
+                    results.push({ product: p, distance: dist, similarity: Math.max(0, 100 - (dist / 64) * 100) });
+                }
+            }
+            results.sort((a, b) => a.distance - b.distance);
+            const container = document.getElementById('photoSearchResults');
+            const emptyMsg = document.getElementById('photoSearchEmpty');
+            if (results.length === 0) {
+                container.innerHTML = '';
+                emptyMsg.textContent = '❌ कोई matching product नहीं मिला। दूसरी photo try करें।';
+                emptyMsg.style.display = 'block';
+                showToast('❌ No matching products found.', 'warning');
+                return;
+            }
+            emptyMsg.style.display = 'none';
+            const topResults = results.slice(0, 20);
+            container.innerHTML = topResults.map(r => {
+                const p = r.product;
+                const cur = p.totalStockReceived - p.stockSold;
+                const isLow = cur <= p.lowStockLimit;
+                const photoHtml = p.photo ? `<img src="${p.photo}">` : `<span class="no-photo">🖼️</span>`;
+                const similarityText = r.similarity >= 80 ? '🔥 Very Similar' :
+                    r.similarity >= 60 ? '👍 Similar' : '🔍 Somewhat Similar';
+                return `
+                            <div class="product-card" onclick="selectSearchResult('${p.id}')" style="cursor:pointer;">
+                                <div class="photo">${photoHtml}</div>
+                                <div class="info">
+                                    <div class="name">${escapeHtml(p.name)}</div>
+                                    <div class="code">${escapeHtml(p.code || '')}</div>
+                                    <div class="stock-row">
+                                        <span class="current">${cur}</span>
+                                        ${isLow ? '<span class="low-badge">⚠️ LOW</span>' : ''}
+                                    </div>
+                                    <div class="similarity">Match: ${r.similarity.toFixed(1)}% — ${similarityText}</div>
+                                </div>
+                            </div>
+                        `;
+            }).join('');
+            showToast(`✅ ${results.length} matching products found!`, 'success');
+        }
+
+        // =================================================================
+        // 7. RENDER FUNCTIONS
+        // =================================================================
+        function renderAll() {
+            renderDashboard();
+            renderProductList();
+            renderBillItems();
+            renderReports();
+            renderSettings();
+        }
+
+        function renderDashboard() {
+            const allProducts = getProducts();
+            const allSales = sales || [];
+            let totalStock = 0,
+                totalSold = 0,
+                currentStock = 0,
+                lowStockCount = 0;
+            let totalStockValue = 0;
+            const today = new Date().toISOString().split('T')[0];
+            let todaySales = 0,
+                totalSales = 0;
+            allProducts.forEach(p => {
+                const cur = p.totalStockReceived - p.stockSold;
+                totalStock += p.totalStockReceived;
+                totalSold += p.stockSold;
+                currentStock += cur;
+                if (cur <= p.lowStockLimit) lowStockCount++;
+                const purchasePrice = p.purchasePrice || 0;
+                totalStockValue += cur * purchasePrice;
+            });
+            allSales.forEach(s => {
+                totalSales += s.total || 0;
+                if (s.date === today) todaySales += s.total || 0;
+            });
+            const stats = [
+                { label: '📦 Total Products', value: allProducts.length, cls: 'total' },
+                { label: '📥 Total Stock Received', value: totalStock, cls: '' },
+                { label: '📤 Total Sold', value: totalSold, cls: 'sales' },
+                { label: '📊 Current Stock', value: currentStock, cls: '' },
+                { label: '⚠️ Low Stock Products', value: lowStockCount, cls: lowStockCount > 0 ? 'low-stock' : '' },
+                { label: '💰 Total Stock Value', value: '₹ ' + totalStockValue.toFixed(2), cls: 'stock-value' },
+                { label: '💰 Today\'s Sales', value: '₹ ' + todaySales.toFixed(2), cls: 'sales' },
+                { label: '💰 Total Sales', value: '₹ ' + totalSales.toFixed(2), cls: 'sales' },
+            ];
+            document.getElementById('dashboardStats').innerHTML = stats.map(s =>
+                `<div class="stat-card ${s.cls}"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>`
+            ).join('');
+
+            const lowItems = allProducts.filter(p => (p.totalStockReceived - p.stockSold) <= p.lowStockLimit);
+            const alertContainer = document.getElementById('lowStockAlertList');
+            const noLow = document.getElementById('noLowStock');
+            if (lowItems.length === 0) { alertContainer.innerHTML = '';
+                noLow.style.display = 'block'; } else {
+                noLow.style.display = 'none';
+                alertContainer.innerHTML = lowItems.map(p => {
+                    const cur = p.totalStockReceived - p.stockSold;
+                    const photoHtml = p.photo ? `<img src="${p.photo}">` : `<span style="font-size:1.5rem;opacity:0.3;">🖼️</span>`;
+                    return `
+                                <div class="low-stock-item">
+                                    <div class="thumb">${photoHtml}</div>
+                                    <div class="details">
+                                        <div class="name">${escapeHtml(p.name)}</div>
+                                        <div class="stock">बचा हुआ: ${cur}</div>
+                                    </div>
+                                    <span class="badge">⚠️ LOW</span>
+                                </div>
+                            `;
+                }).join('');
+            }
+        }
+
+        function renderProductList() {
+            const allProducts = getProducts();
+            const search = document.getElementById('stockSearchInput').value.toLowerCase().trim();
+            let filtered = search ? allProducts.filter(p =>
+                p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search))
+            ) : allProducts;
+            const container = document.getElementById('productListContainer');
+            if (filtered.length === 0) {
+                container.innerHTML =
+                    `<p class="text-muted text-center" style="padding:40px 0;">❌ कोई product नहीं मिला।</p>`;
+                return;
+            }
+            container.innerHTML = `<div class="product-grid">` +
+                filtered.map(p => {
+                    const cur = p.totalStockReceived - p.stockSold;
+                    const isLow = cur <= p.lowStockLimit;
+                    const isOut = cur <= 0;
+                    const photoHtml = p.photo ? `<img src="${p.photo}">` : `<span class="no-photo">🖼️</span>`;
+                    return `
+                                <div class="product-card">
+                                    <div class="photo">${photoHtml}</div>
+                                    <div class="info">
+                                        <div class="name">${escapeHtml(p.name)}</div>
+                                        <div class="code">Code: ${escapeHtml(p.code || 'N/A')}</div>
+                                        <div class="prices">
+                                            <span>🛒 Purchase: ₹${p.purchasePrice||0}</span>
+                                            <span>💰 Sell: ₹${p.sellingPrice||0}</span>
+                                        </div>
+                                        <div class="stock-row">
+                                            <span class="current">${cur}</span>
+                                            ${isOut ? '<span class="low-badge">🚫 OUT OF STOCK</span>' : isLow ? '<span class="low-badge">⚠️ LOW</span>' : ''}
+                                        </div>
+                                        <div class="actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #eef2f6;">
+                                            <button class="btn btn-success btn-sm" onclick="openSellModal('${p.id}')">💰 Sell</button>
+                                            <button class="btn btn-primary btn-sm" onclick="openEditProductModal('${p.id}')">✏️ Edit</button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑️</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                }).join('') +
+                `</div>`;
+        }
+
+        function renderReports() {
+            const allProducts = getProducts();
+            const allSales = sales || [];
+            let totalStock = 0,
+                totalSold = 0,
+                currentStock = 0,
+                lowStockCount = 0;
+            let totalStockValue = 0;
+            const today = new Date().toISOString().split('T')[0];
+            let todaySales = 0,
+                totalSales = 0;
+            allProducts.forEach(p => {
+                const cur = p.totalStockReceived - p.stockSold;
+                totalStock += p.totalStockReceived;
+                totalSold += p.stockSold;
+                currentStock += cur;
+                if (cur <= p.lowStockLimit) lowStockCount++;
+                totalStockValue += cur * (p.purchasePrice || 0);
+            });
+            allSales.forEach(s => {
+                totalSales += s.total || 0;
+                if (s.date === today) todaySales += s.total || 0;
+            });
+            const stats = [
+                { label: '📦 Total Products', value: allProducts.length, cls: 'total' },
+                { label: '📥 Total Stock', value: totalStock, cls: '' },
+                { label: '📤 Total Sold', value: totalSold, cls: 'sales' },
+                { label: '📊 Current Stock', value: currentStock, cls: '' },
+                { label: '⚠️ Low Stock', value: lowStockCount, cls: lowStockCount > 0 ? 'low-stock' : '' },
+                { label: '💰 Total Stock Value', value: '₹ ' + totalStockValue.toFixed(2), cls: 'stock-value' },
+                { label: '💰 Today\'s Sales', value: '₹ ' + todaySales.toFixed(2), cls: 'sales' },
+                { label: '💰 Total Sales', value: '₹ ' + totalSales.toFixed(2), cls: 'sales' },
+            ];
+            document.getElementById('reportsStats').innerHTML = stats.map(s =>
+                `<div class="stat-card ${s.cls}"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>`
+            ).join('');
+
+            const lowItems = allProducts.filter(p => (p.totalStockReceived - p.stockSold) <= p.lowStockLimit);
+            const container = document.getElementById('reportsLowStock');
+            if (lowItems.length === 0) { container.innerHTML = `<p class="text-muted">✅ No low stock products.</p>`; } else {
+                container.innerHTML = lowItems.map(p => {
+                    const cur = p.totalStockReceived - p.stockSold;
+                    const photoHtml = p.photo ? `<img src="${p.photo}">` : `<span class="no-photo" style="font-size:2rem;">🖼️</span>`;
+                    return `
+                                <div class="product-card" style="border-left:4px solid #dc2626;">
+                                    <div class="photo" style="height:120px;">${photoHtml}</div>
+                                    <div class="info">
+                                        <div class="name">${escapeHtml(p.name)}</div>
+                                        <div class="stock-row"><span class="current" style="color:#dc2626;">${cur}</span> <span class="low-badge">⚠️ LOW</span></div>
+                                    </div>
+                                </div>
+                            `;
+                }).join('');
+            }
+        }
+
+        function renderSettings() {
+            document.getElementById('dataSummary').innerHTML =
+                `📊 <strong>Products:</strong> ${products.length} &nbsp;|&nbsp; <strong>Sales:</strong> ${sales.length} &nbsp;|&nbsp; <strong>Bills:</strong> ${bills.length}`;
+        }
+
+        // =================================================================
+        // 8. MODAL HELPERS
+        // =================================================================
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        // =================================================================
+        // 9. PHOTO UPLOAD (Product Add/Edit)
+        // =================================================================
+        let currentPhotoData = null;
+
+        function previewPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.size > 50 * 1024 * 1024) {
+                showToast('⚠️ फोटो 50MB से बड़ी है। कृपया छोटी फोटो चुनें।', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentPhotoData = e.target.result;
+                document.getElementById('photoPreview').innerHTML = `<img src="${e.target.result}">`;
+                showToast('✅ Photo selected! Save product to store it.', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removePhoto() {
+            currentPhotoData = null;
+            document.getElementById('productPhoto').value = '';
+            document.getElementById('photoPreview').innerHTML = `<span class="placeholder">🖼️<br>No Photo</span>`;
+            showToast('Photo removed.', 'warning');
+        }
+
+        // =================================================================
+        // 10. PRODUCT MODAL
+        // =================================================================
+        function openAddProductModal() {
+            document.getElementById('productModalTitle').textContent = '➕ Add Product';
+            document.getElementById('editProductId').value = '';
+            document.getElementById('productForm').reset();
+            removePhoto();
+            openModal('productModal');
+        }
+
+        function openEditProductModal(id) {
+            const p = getProductById(id);
+            if (!p) return;
+            document.getElementById('productModalTitle').textContent = '✏️ Edit Product';
+            document.getElementById('editProductId').value = id;
+            document.getElementById('productName').value = p.name || '';
+            document.getElementById('productCode').value = p.code || '';
+            document.getElementById('productPurchasePrice').value = p.purchasePrice || '';
+            document.getElementById('productSellingPrice').value = p.sellingPrice || '';
+            document.getElementById('productTotalStock').value = p.totalStockReceived || '';
+            document.getElementById('productLowLimit').value = p.lowStockLimit || '';
+            const preview = document.getElementById('photoPreview');
+            if (p.photo) {
+                currentPhotoData = p.photo;
+                preview.innerHTML = `<img src="${p.photo}">`;
+            } else {
+                currentPhotoData = null;
+                preview.innerHTML = `<span class="placeholder">🖼️<br>No Photo</span>`;
+            }
+            document.getElementById('productPhoto').value = '';
+            openModal('productModal');
+        }
+
+        async function saveProduct(event) {
+            event.preventDefault();
+            const id = document.getElementById('editProductId').value;
+            const name = document.getElementById('productName').value.trim();
+            const code = document.getElementById('productCode').value.trim();
+            const purchasePrice = parseFloat(document.getElementById('productPurchasePrice').value) || 0;
+            const sellingPrice = parseFloat(document.getElementById('productSellingPrice').value) || 0;
+            const totalStock = parseInt(document.getElementById('productTotalStock').value) || 0;
+            const lowLimit = parseInt(document.getElementById('productLowLimit').value) || 0;
+
+            if (!name) { showToast('❌ Product Name ज़रूरी है।', 'error'); return; }
+            if (sellingPrice < 0) { showToast('❌ Selling Price नेगेटिव नहीं हो सकता।', 'error'); return; }
+            if (totalStock < 0) { showToast('❌ Total Stock नेगेटिव नहीं हो सकता।', 'error'); return; }
+            if (lowLimit < 0) { showToast('❌ Low Stock Limit नेगेटिव नहीं हो सकता।', 'error'); return; }
+
+            let photoToSave = currentPhotoData;
+            let photoHash = null;
+
+            if (!photoToSave && id) {
+                const existing = getProductById(id);
+                if (existing && existing.photo) {
+                    photoToSave = existing.photo;
+                    photoHash = existing.photoHash || null;
+                }
+            }
+
+            if (photoToSave && !photoHash) {
+                photoHash = await computeImageHash(photoToSave);
+            }
+
+            const productData = {
+                name,
+                code: code || '',
+                purchasePrice,
+                sellingPrice,
+                totalStockReceived: totalStock,
+                lowStockLimit: lowLimit,
+                photo: photoToSave || null,
+                photoHash: photoHash || null,
+                stockSold: 0
+            };
+
+            if (id) {
+                const existing = getProductById(id);
+                if (existing) productData.stockSold = existing.stockSold || 0;
+                updateProduct(id, productData);
+            } else {
+                productData.stockSold = 0;
+                addProduct(productData);
+            }
+            closeModal('productModal');
+        }
+
+        // =================================================================
+        // 11. SELL MODAL
+        // =================================================================
+        let sellTargetId = null;
+
+        function openSellModal(id) {
+            const p = getProductById(id);
+            if (!p) return;
+            sellTargetId = id;
+            const cur = p.totalStockReceived - p.stockSold;
+            document.getElementById('sellProductName').textContent = p.name + (p.code ? ' (' + p.code + ')' : '');
+            document.getElementById('sellCurrentStock').textContent = cur;
+            document.getElementById('sellQuantity').value = 1;
+            document.getElementById('sellQuantity').min = 1;
+            document.getElementById('sellQuantity').max = cur;
+            document.getElementById('sellError').style.display = 'none';
+            openModal('sellModal');
+            setTimeout(() => document.getElementById('sellQuantity').focus(), 100);
+        }
+
+        function confirmSell() {
+            const qty = parseInt(document.getElementById('sellQuantity').value);
+            if (!sellTargetId) return;
+            const p = getProductById(sellTargetId);
+            if (!p) { showToast('Product not found', 'error');
+                closeModal('sellModal'); return; }
+            const cur = p.totalStockReceived - p.stockSold;
+            if (isNaN(qty) || qty <= 0) {
+                document.getElementById('sellError').textContent = '❌ कृपया 1 से अधिक quantity डालें।';
+                document.getElementById('sellError').style.display = 'block';
+                return;
+            }
+            if (qty > cur) {
+                document.getElementById('sellError').textContent = `❌ केवल ${cur} items उपलब्ध हैं।`;
+                document.getElementById('sellError').style.display = 'block';
+                return;
+            }
+            const result = sellProduct(sellTargetId, qty);
+            if (result.success) { showToast(result.msg, 'success');
+                closeModal('sellModal'); } else {
+                document.getElementById('sellError').textContent = '❌ ' + result.msg;
+                document.getElementById('sellError').style.display = 'block';
+            }
+        }
+
+        // =================================================================
+        // 12. BACKUP / RESTORE (works with Firestore)
+        // =================================================================
+        function exportBackup() {
+            const data = { products, bills, sales, billCounter };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `aditya_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('✅ Backup exported!', 'success');
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!imported.products || !Array.isArray(imported.products)) throw new Error('Invalid data');
+                    if (!confirm('⚠️ इससे सारा मौजूदा डेटा replace हो जाएगा। क्या आप continue करना चाहते हैं?'))
+                        return;
+                    // Import to Firestore
+                    products = imported.products || [];
+                    bills = imported.bills || [];
+                    sales = imported.sales || [];
+                    billCounter = imported.billCounter || 0;
+                    saveCache();
+
+                    // Push to Firestore
+                    if (isFirebaseReady && db) {
+                        const batch = db.batch();
+                        products.forEach(p => {
+                            const ref = db.collection('products').doc(p.id);
+                            batch.set(ref, p, { merge: true });
+                        });
+                        bills.forEach(b => {
+                            const ref = db.collection('bills').doc(b.id);
+                            batch.set(ref, b, { merge: true });
+                        });
+                        sales.forEach(s => {
+                            const ref = db.collection('sales').doc(s.id);
+                            batch.set(ref, s, { merge: true });
+                        });
+                        const counterRef = db.collection('meta').doc('billCounter');
+                        batch.set(counterRef, { value: billCounter }, { merge: true });
+                        batch.commit().then(() => {
+                            showToast('✅ Backup imported and synced!', 'success');
+                            renderAll();
+                        }).catch(err => {
+                            showToast('⚠️ Imported locally but sync failed: ' + err.message, 'warning');
+                            renderAll();
+                        });
+                    } else {
+                        renderAll();
+                        showToast('✅ Backup imported locally (offline mode).', 'success');
+                    }
+                } catch (err) { showToast('❌ Invalid backup file: ' + err.message, 'error'); }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (!confirm('⚠️ क्या आप सारा डेटा permanently delete करना चाहते हैं?')) return;
+            if (!confirm('⚠️ फिर से confirm करें:')) return;
+            products = [];
+            bills = [];
+            sales = [];
+            billCounter = 0;
+            saveCache();
+            if (isFirebaseReady && db) {
+                // Delete all collections
+                const collections = ['products', 'bills', 'sales'];
+                collections.forEach(col => {
+                    db.collection(col).get().then(snap => {
+                        const batch = db.batch();
+                        snap.forEach(doc => { batch.delete(doc.ref); });
+                        return batch.commit();
+                    }).catch(e => console.warn('Clear error:', e));
+                });
+                db.collection('meta').doc('billCounter').set({ value: 0 });
+            }
+            renderAll();
+            showToast('🗑️ All data cleared.', 'warning');
+        }
+
+        function forceResync() {
+            showToast('🔄 Resyncing...', 'info');
+            if (isFirebaseReady && db) {
+                // Reload all data from Firestore
+                db.collection('products').get().then(snap => {
+                    const list = [];
+                    snap.forEach(doc => { const d = doc.data();
+                        d.id = doc.id;
+                        list.push(d); });
+                    products = list;
+                    saveCache();
+                    renderAll();
+                    showToast('✅ Resync complete!', 'success');
+                }).catch(err => {
+                    showToast('⚠️ Resync error: ' + err.message, 'error');
+                });
+            } else {
+                loadCache();
+                renderAll();
+                showToast('📡 Offline mode — loaded from cache.', 'warning');
+            }
+        }
+
+        // =================================================================
+        // 13. TOAST & UTILITY
+        // =================================================================
+        let toastTimeout;
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + type;
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 3500);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // =================================================================
+        // 14. NAVIGATION
+        // =================================================================
+        document.querySelectorAll('#navTabs button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#navTabs button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const tab = this.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                document.getElementById('tab-' + tab).classList.add('active');
+                if (tab === 'dashboard') renderDashboard();
+                if (tab === 'reports') renderReports();
+                if (tab === 'settings') renderSettings();
+            });
+        });
+
+        // =================================================================
+        // 15. INIT
+        // =================================================================
+        document.getElementById('billDate').value = new Date().toISOString().split('T')[0];
+        renderBillItems();
+
+        // Load cache first for instant display
+        loadCache();
+        renderAll();
+
+        // Then start Firestore listeners for real-time sync
+        if (isFirebaseReady) {
+            startFirestoreListeners();
+        } else {
+            setSyncStatus('offline', 'Firebase not configured. Using localStorage.');
+            showToast('⚠️ Firebase not configured. Data is local only.', 'warning');
+        }
+
+        // Generate initial bill number
+        generateBillNumber();
+
+        // Close modals on outside click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('open');
+            });
+        });
+
+        // Close search on outside click
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('globalSearchContainer');
+            if (!container.contains(e.target)) {
+                document.getElementById('globalSearchDropdown').classList.remove('open');
+                document.getElementById('clearGlobalSearch').classList.remove('visible');
+            }
+        });
+
+        console.log('🏪 Aditya Business Centre — Online Sync Edition (Fixed)');
+        console.log(`📦 ${products.length} products loaded`);
+    </script>
+
+</body>
+</html>
